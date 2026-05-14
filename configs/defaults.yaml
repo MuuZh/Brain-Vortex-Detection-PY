@@ -1,0 +1,189 @@
+# MatPhase Default Configuration
+# This file contains default parameters for fMRI spiral analysis
+
+# === Paths Configuration ===
+paths:
+  # Input data paths (can be overridden via environment variables or CLI)
+  data_dir: ./testdata # Set to your data directory
+  output_dir: ./output # Default output directory
+  cifti_file: DMT_DMT_S01_Atlas_s0.dtseries.nii # Path to CIFTI file
+
+  # Surface geometry files - separate paths for left and right hemispheres
+  surface_left: L.flat.32k_fs_LR.surf.gii # Left hemisphere surface file
+  surface_right: R.flat.32k_fs_LR.surf.gii # Right hemisphere surface file
+  parcellation_left: left_brain_parcellation.npy # Left hemisphere parcellation matrix shape == (176, 251), nan for non-cortical nodes
+  parcellation_right: right_brain_parcellation.npy # Right hemisphere parcellation matrix shape == (176, 251), nan for non-cortical nodes
+
+# === Preprocessing Parameters ===
+preprocessing:
+  # Hemisphere selection
+  hemisphere: "left" # Options: left, right, both
+
+  # Spatial interpolation settings
+  sigma_scale: [29.35, 14.93] # Gaussian smoothing scales (in mm)
+  downsample_rate: 2 # Spatial downsampling factor for re-interpolation
+  interpolation_method: cubic # Options: cubic, linear, nearest, tri_linear (requires faces)
+  interpolation_coordinate_system: physical # physical (MATLAB parity) or positive (shift before interp)
+
+  # Coordinate grids for re-interpolation (per hemisphere)
+  left_x_coord_min: -250
+  left_x_coord_max: 250
+  left_y_coord_min: -150
+  left_y_coord_max: 200
+  right_x_coord_min: -270
+  right_x_coord_max: 230
+  right_y_coord_min: -180
+  right_y_coord_max: 170
+
+  # Temporal sampling
+  TR: 2.0
+  temporal_sampling_rate: 0.5 # Hz for DMT data TR=2s; 1.38889Hz for HCP data (TR=0.72s)
+
+  # Bandpass filtering
+  filter_low_freq: 0.01 # Hz - lower cutoff for bandpass filter
+  filter_high_freq: 0.1 # Hz - upper cutoff for bandpass filter
+  filter_order: 4 # Butterworth filter order
+
+  # MATLAB parity options for temporal filtering
+  filter_method: sosfiltfilt # Options: sosfiltfilt (scipy default), filtfilt (more control)
+  filter_padtype: odd # Options: odd (default), even, constant - padding strategy for filtfilt
+  filter_precision: float32 # Options: float32 (fast), float64 (MATLAB-like precision)
+
+  # Phase extraction method selection
+  phase_extraction_method: generalized_phase # Options: hilbert, generalized_phase
+
+  # Hilbert method options
+  return_analytic_signal: true # Return complex analytic signal (Hilbert method)
+
+  # Generalized Phase (GP) method options (future implementation)
+  gp_filter_range: null # GP frequency range (Hz), null=use bandpass range
+  gp_smoothing_window: null # GP phase smoothing window (samples), null=no smoothing
+  gp_phase_correction_threshold: 0 # GP negative frequency detection threshold
+  gp_neg_freq_extension: 3 # GP negative frequency mask extension factor (>=1)
+  gp_return_inst_freq: true # GP method: return instantaneous frequency
+  gp_return_neg_freq_mask: false # GP method: return negative frequency correction markers
+
+  # Common temporal options
+  temporal_demean: true # Demean each channel before filtering
+  show_temporal_progress: true # Show progress bar for temporal filtering
+
+  # Spatial filtering options
+  sigma_scales: [29.35, 14.93] # Gaussian sigma scales in physical coordinates (adjusted by downsample_rate)
+  spatial_filter_mode: dog # Spatial filtering mode: dog (difference-of-Gaussians) or lowpass
+  show_spatial_progress: true # Show progress bar for spatial filtering
+
+  # Surrogate generation options
+  n_surrogates: 1 # Number of surrogate realizations to generate
+  surrogate_random_seed: null # Random seed for surrogate generation (null=non-reproducible)
+  surrogate_phase_mode: add # Phase randomization mode: replace (standard) or add (MATLAB)
+
+  # Legacy smoothing flags (deprecated, use spatial_filter_mode)
+  use_surrogate_filtering: false # [DEPRECATED] Use surrogate-based spatial filtering
+  use_gaussian_smoothing: true # [DEPRECATED] Use Gaussian spatial smoothing
+
+# === Pattern Detection Parameters ===
+detection:
+  # Minimum thresholds for spiral pattern detection
+  min_pattern_duration: 1 # Minimum duration in time frames
+  min_pattern_size: 3 # Minimum spatial extent (pixels/nodes)
+
+  # Detection method settings
+  connectivity: 26 # Connectivity for 3D pattern detection (6, 18, or 26)
+  use_weighted_centroids: true # Use amplitude-weighted centroids
+
+  # Threshold parameters for spiral detection (MATLAB defaults)
+  curl_threshold: 1.0 # Minimum curl magnitude (MATLAB: cav_filt_pos<1=0)
+  expansion_threshold: 1.0 # Expansion constraint used during MATLAB-style radius growth (voxels excluded <= threshold * radius)
+  phase_coherence_threshold: null # Legacy gradient coherence filter (null=skip)
+  phase_difference_threshold: 0.5235987756 # Max |phase_raw - phase_smooth| (MATLAB phase_df_threshold = pi/6)
+  rotation_mode: both # Options: ccw (positive curl), cw (negative curl), both
+  enable_spiral_expansion: true # Grow spirals using MATLAB radius+angle rules
+  apply_phase_difference_mask: false # DEPRECATED: ignored for expansion; phase-diff mask always used for compatibility only (MATLAB parity)
+  angle_window_center: 1.5707963267948966 # Ideal angle difference between radial vector and phase vector (pi/2)
+  angle_window_half_width: 0.7853981633974483 # Allowed +/- deviation (pi/4)
+  expansion_radius_min: 2.0 # Starting radius for expansion (grid units)
+  expansion_radius_max: 100.0 # Maximum radius for expansion (grid units)
+  expansion_radius_step: 0.5 # Radius increment (grid units)
+  center_patch_radius: 1 # Always-keep neighborhood radius (1 -> 3x3 patch)
+
+  # Surrogate-based statistical thresholding
+  use_surrogate_thresholds: true # Compute thresholds from surrogate distribution (overrides fixed values)
+  surrogate_percentile: 95.0 # Percentile for threshold (95.0=p<0.05, 99.0=p<0.01)
+  n_surrogates_threshold: 1 # Number of surrogates for threshold estimation
+
+  # Threshold application mode
+  use_absolute_curl: true # Use absolute curl value (true=both rotations, false=signed only)
+  threshold_fill_value: 0.0 # Value for sub-threshold regions (0.0 or nan)
+
+# === Analysis Parameters ===
+analysis:
+  # Task-related settings
+  task_onset_buffer: 0 # Frames before task onset to include
+  task_offset_buffer: 0 # Frames after task offset to include
+
+  # Statistical testing
+  significance_level: 0.05 # Alpha for statistical tests
+  permutation_count: 1000 # Number of permutations for null distribution
+
+  # Classification
+  classifier_type: "nearest_centroid" # Classifier type: nearest_centroid (default), svm, random_forest, logistic
+  cross_validation_folds: 5 # K-folds for cross-validation
+
+  contrast:
+    design_file: null # Optional CSV/TSV containing condition columns + onset/duration
+    baseline_condition: "rest" # Default denominator condition for quick contrasts
+    minimum_frames: 1 # Minimum frames required per condition to compute a map
+    percent_change_epsilon: 1.0e-6 # Stabilizer for percent-change math
+
+  classification:
+    label_file: null # Optional CSV containing labels per pattern_id
+    feature_columns:
+      - duration
+      - mean_size
+      - mean_power
+      - radius_estimate
+      - mean_speed
+      - trajectory_angle
+    cv_strategy: stratified_kfold # Options: stratified_kfold, kfold, leave_one_out
+    cross_validation_folds: 5
+    random_state: 42
+    wrap_angles: true
+    min_class_samples: 2
+  report:
+    output_root: tests/analysis/output
+    prefix: report
+    formats:
+      - markdown
+      - html
+  cli:
+    subjects_manifest: null
+    default_bundles: []
+
+# === Computational Settings ===
+compute:
+  # Hardware acceleration
+  use_gpu: false # Enable GPU acceleration (requires CuPy/Taichi)
+  gpu_device: 0 # GPU device ID if multiple GPUs available
+
+  # Parallelization
+  n_jobs: -1 # Number of parallel jobs (-1 = all cores)
+
+  # Memory management
+  chunk_size: null # Process data in chunks (null = auto)
+
+# === Output Settings ===
+output:
+  # Save intermediate results
+  save_preprocessed: true
+  save_patterns: true
+  save_figures: true
+  save_phase_cube: true
+  phase_cube_filename: phase_cube.npy
+
+  # Figure settings
+  figure_format: "png" # Output format: png, pdf, svg
+  figure_dpi: 300 # DPI for raster outputs
+
+  # Logging
+  log_level: "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_file: null # Log file path (null = stderr only)
